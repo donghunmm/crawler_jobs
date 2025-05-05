@@ -44,4 +44,4 @@ jobs:
         TO_EMAIL: ${{ secrets.TO_EMAIL }}
         APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
       run: |
-        python your_script.py
+        python crawler.py
