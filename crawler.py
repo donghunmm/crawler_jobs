@@ -15,9 +15,9 @@ KEYWORDS = ["정보보안", "보안"]
 REGIONS = ["서울", "경기"]
 EXPERIENCE_KEYWORDS = ["신입", "인턴"]
 
-FROM_EMAIL = "your_email@gmail.com"
-TO_EMAIL = "receiver_email@gmail.com"
-APP_PASSWORD = "your_app_password"
+FROM_EMAIL = os.environ.get("FROM_EMAIL")
+TO_EMAIL = os.environ.get("TO_EMAIL")
+APP_PASSWORD = os.environ.get("APP_PASSWORD")
 
 PREV_JOBS_FILE = "jobs.json"
 
