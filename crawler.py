@@ -1,3 +1,6 @@
+import os
+import json
+from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -5,12 +8,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
-from datetime import datetime
 import smtplib
 import ssl
 from email.mime.text import MIMEText
-import json
-import os
 
 FROM_EMAIL = os.environ["FROM_EMAIL"]
 TO_EMAIL = os.environ["TO_EMAIL"]
@@ -18,19 +18,17 @@ APP_PASSWORD = os.environ["APP_PASSWORD"]
 
 def setup_driver():
     chrome_options = Options()
-    chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--headless=new")
     service = Service(ChromeDriverManager().install())
     return webdriver.Chrome(service=service, options=chrome_options)
 
-def crawl_saramin():
+def crawl_saramin(driver):
     print("🟢 Saramin 크롤링 시작")
     jobs = []
-    driver = setup_driver()
     try:
         driver.get("https://www.saramin.co.kr/zf_user/jobs/list/job-category")
-        # 최신 구조에 맞는 선택자 (2024.06 기준)
         WebDriverWait(driver, 10).until(
             EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.area_job > h2.job_tit > a"))
         )
@@ -43,18 +41,13 @@ def crawl_saramin():
     except Exception as e:
         print(f"❌ Saramin 크롤링 실패: {e}")
         driver.save_screenshot("saramin_error.png")
-        print("🖼️ Saramin 에러 화면 캡처 (saramin_error.png)")
-    finally:
-        driver.quit()
     return jobs
 
-def crawl_jobkorea():
+def crawl_jobkorea(driver):
     print("🟢 JobKorea 크롤링 시작")
     jobs = []
-    driver = setup_driver()
     try:
         driver.get("https://www.jobkorea.co.kr/recruit/joblist")
-        # 최신 구조에 맞는 선택자 (2024.06 기준)
         WebDriverWait(driver, 10).until(
             EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.list-default > ul.clear > li > div.post-list-info > a.title"))
         )
@@ -67,18 +60,13 @@ def crawl_jobkorea():
     except Exception as e:
         print(f"❌ JobKorea 크롤링 실패: {e}")
         driver.save_screenshot("jobkorea_error.png")
-        print("🖼️ JobKorea 에러 화면 캡처 (jobkorea_error.png)")
-    finally:
-        driver.quit()
     return jobs
 
-def crawl_wanted():
+def crawl_wanted(driver):
     print("🟢 Wanted 크롤링 시작")
     jobs = []
-    driver = setup_driver()
     try:
         driver.get("https://www.wanted.co.kr/jobsfeed")
-        # 동적 로딩이므로, job-card로 시작하는 div를 기다림 (2024.06 기준)
         WebDriverWait(driver, 15).until(
             EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.JobCard_container__z4_3g a"))
         )
@@ -96,9 +84,6 @@ def crawl_wanted():
     except Exception as e:
         print(f"❌ Wanted 크롤링 실패: {e}")
         driver.save_screenshot("wanted_error.png")
-        print("🖼️ Wanted 에러 화면 캡처 (wanted_error.png)")
-    finally:
-        driver.quit()
     return jobs
 
 def load_previous_jobs():
@@ -127,9 +112,12 @@ def send_email(subject, body):
         print(f"❌ 이메일 전송 실패: {e}")
 
 def main():
-    saramin_jobs = crawl_saramin()
-    jobkorea_jobs = crawl_jobkorea()
-    wanted_jobs = crawl_wanted()
+    driver = setup_driver()
+    saramin_jobs = crawl_saramin(driver)
+    jobkorea_jobs = crawl_jobkorea(driver)
+    wanted_jobs = crawl_wanted(driver)
+    driver.quit()
+
     all_jobs = saramin_jobs + jobkorea_jobs + wanted_jobs
 
     previous_links = set()
