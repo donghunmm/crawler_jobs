@@ -1,6 +1,9 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from datetime import datetime
 import smtplib
@@ -8,6 +11,7 @@ import ssl
 from email.mime.text import MIMEText
 import json
 import os
+import sys
 
 FROM_EMAIL = os.environ["FROM_EMAIL"]
 TO_EMAIL = os.environ["TO_EMAIL"]
@@ -22,45 +26,72 @@ def setup_driver():
     return webdriver.Chrome(service=service, options=chrome_options)
 
 def crawl_saramin():
-    driver = setup_driver()
-    driver.get("https://www.saramin.co.kr/zf_user/jobs/list/job-category")
-    driver.implicitly_wait(5)
+    print("🟢 Saramin 크롤링 시작")
     jobs = []
-
-    elements = driver.find_elements("css selector", "div.item_recruit > div.area_job > h2.job_tit > a")
-    for e in elements[:5]:  # 상위 5개만 예시
-        title = e.get_attribute("title").strip()
-        link = e.get_attribute("href")
-        jobs.append(f"📌 {title}\n{link}")
-
-    driver.quit()
+    driver = setup_driver()
+    try:
+        driver.get("https://www.saramin.co.kr/zf_user/jobs/list/job-category")
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.area_job > h2.job_tit > a"))
+        )
+        elements = driver.find_elements(By.CSS_SELECTOR, "div.area_job > h2.job_tit > a")
+        for e in elements[:5]:
+            title = e.get_attribute("title").strip()
+            link = e.get_attribute("href")
+            jobs.append({"title": title, "link": link})
+        print(f"🟢 Saramin {len(jobs)}개 수집")
+    except Exception as e:
+        print(f"❌ Saramin 크롤링 실패: {e}")
+    finally:
+        driver.quit()
     return jobs
 
 def crawl_jobkorea():
-    driver = setup_driver()
-    driver.get("https://www.jobkorea.co.kr/recruit/joblist")
+    print("🟢 JobKorea 크롤링 시작")
     jobs = []
-    elements = driver.find_elements("css selector", "div.item_recruit > div.area_job > h2.job_tit > a")
-    for e in elements[:5]:  # 상위 5개만 예시
-        title = e.get_attribute("title").strip()
-        link = e.get_attribute("href")
-        jobs.append(f"📌 {title}\n{link}")
-
-    driver.quit()
+    driver = setup_driver()
+    try:
+        driver.get("https://www.jobkorea.co.kr/recruit/joblist")
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.list-default > ul.clear > li > div.post-list-info > a.title"))
+        )
+        elements = driver.find_elements(By.CSS_SELECTOR, "div.list-default > ul.clear > li > div.post-list-info > a.title")
+        for e in elements[:5]:
+            title = e.text.strip()
+            link = e.get_attribute("href")
+            jobs.append({"title": title, "link": link})
+        print(f"🟢 JobKorea {len(jobs)}개 수집")
+    except Exception as e:
+        print(f"❌ JobKorea 크롤링 실패: {e}")
+    finally:
+        driver.quit()
     return jobs
 
 def crawl_wanted():
-    driver = setup_driver()
-    driver.get("https://www.wanted.co.kr/jobsfeed")
+    print("🟢 Wanted 크롤링 시작")
     jobs = []
-    
-    elements = driver.find_elements("css selector", "div.item_recruit > div.area_job > h2.job_tit > a")
-    for e in elements[:5]:  # 상위 5개만 예시
-        title = e.get_attribute("title").strip()
-        link = e.get_attribute("href")
-        jobs.append(f"📌 {title}\n{link}")
-
-    driver.quit()
+    driver = setup_driver()
+    try:
+        driver.get("https://www.wanted.co.kr/jobsfeed")
+        # 동적 로딩이므로, job-card로 시작하는 div를 기다림
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.JobCard_container__z4_3g a"))
+        )
+        elements = driver.find_elements(By.CSS_SELECTOR, "div.JobCard_container__z4_3g a")
+        count = 0
+        for e in elements:
+            link = e.get_attribute("href")
+            if link and "/wd/" in link:
+                title = e.text.strip()
+                jobs.append({"title": title, "link": link})
+                count += 1
+                if count >= 5:
+                    break
+        print(f"🟢 Wanted {len(jobs)}개 수집")
+    except Exception as e:
+        print(f"❌ Wanted 크롤링 실패: {e}")
+    finally:
+        driver.quit()
     return jobs
 
 def load_previous_jobs():
@@ -89,14 +120,23 @@ def send_email(subject, body):
         print(f"❌ 이메일 전송 실패: {e}")
 
 def main():
-    all_jobs = crawl_saramin() + crawl_jobkorea() + crawl_wanted()
+    saramin_jobs = crawl_saramin()
+    jobkorea_jobs = crawl_jobkorea()
+    wanted_jobs = crawl_wanted()
+    all_jobs = saramin_jobs + jobkorea_jobs + wanted_jobs
+
+    # 이전 링크 목록만 저장/비교
+    previous_links = set()
     previous_jobs = load_previous_jobs()
-    new_jobs = list(set(all_jobs) - set(previous_jobs))
+    for job in previous_jobs:
+        previous_links.add(job["link"])
+
+    new_jobs = [job for job in all_jobs if job["link"] not in previous_links]
 
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if new_jobs:
         subject = f"[{now}] 새로운 공고 {len(new_jobs)}건 발견!"
-        body = "\n".join(new_jobs)
+        body = "\n\n".join([f"📌 {job['title']}\n{job['link']}" for job in new_jobs])
         save_jobs(all_jobs)
     else:
         subject = f"[{now}] 새로운 공고 없음"
