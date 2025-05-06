@@ -24,21 +24,42 @@ def setup_driver():
 def crawl_saramin():
     driver = setup_driver()
     driver.get("https://www.saramin.co.kr/zf_user/jobs/list/job-category")
-    jobs = ["사람인 예시 공고 1", "사람인 예시 공고 2"]
+    driver.implicitly_wait(5)
+    jobs = []
+
+    elements = driver.find_elements("css selector", "div.item_recruit > div.area_job > h2.job_tit > a")
+    for e in elements[:5]:  # 상위 5개만 예시
+        title = e.get_attribute("title").strip()
+        link = e.get_attribute("href")
+        jobs.append(f"📌 {title}\n{link}")
+
     driver.quit()
     return jobs
 
 def crawl_jobkorea():
     driver = setup_driver()
     driver.get("https://www.jobkorea.co.kr/recruit/joblist")
-    jobs = ["잡코리아 예시 공고 1", "잡코리아 예시 공고 2"]
+    jobs = []
+    elements = driver.find_elements("css selector", "div.item_recruit > div.area_job > h2.job_tit > a")
+    for e in elements[:5]:  # 상위 5개만 예시
+        title = e.get_attribute("title").strip()
+        link = e.get_attribute("href")
+        jobs.append(f"📌 {title}\n{link}")
+
     driver.quit()
     return jobs
 
 def crawl_wanted():
     driver = setup_driver()
     driver.get("https://www.wanted.co.kr/jobsfeed")
-    jobs = ["원티드 예시 공고 1", "원티드 예시 공고 2"]
+    jobs = []
+    
+    elements = driver.find_elements("css selector", "div.item_recruit > div.area_job > h2.job_tit > a")
+    for e in elements[:5]:  # 상위 5개만 예시
+        title = e.get_attribute("title").strip()
+        link = e.get_attribute("href")
+        jobs.append(f"📌 {title}\n{link}")
+
     driver.quit()
     return jobs
 
