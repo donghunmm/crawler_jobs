@@ -122,6 +122,12 @@ def crawl_wanted():
 # ======== 이메일 전송 ========
 def send_email(new_jobs):
     body = "\n\n".join([f"[{job['title']}]\n{job['company']} - {job['location']}\n{job['link']}" for job in new_jobs])
+
+    # 👇 최근 저장된 전체 job 링크 보기
+    all_saved = load_previous_jobs()
+    body += "\n\n\n--- 저장된 전체 채용 공고 수: {}개 ---\n".format(len(all_saved))
+    body += "\n".join(all_saved)
+
     msg = MIMEText(body)
     msg['Subject'] = f"[보안 채용 알림] {len(new_jobs)}건의 새로운 공고 ({datetime.now().strftime('%Y-%m-%d')})"
     msg['From'] = FROM_EMAIL
