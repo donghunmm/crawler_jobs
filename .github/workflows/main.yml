@@ -1,31 +1,42 @@
-name: Run job crawler
+name: Job Crawler Mailer
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # 매일 오전 0시 실행
+    - cron: '0 2 * * *'  # 매일 오전 11시 (KST = UTC+9)
   workflow_dispatch:     # 수동 실행도 가능하게
 
 jobs:
-  run-crawler:
+  run:
     runs-on: ubuntu-latest
+
     env:
       FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
       TO_EMAIL: ${{ secrets.TO_EMAIL }}
       APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
 
     steps:
-      - name: Checkout code
+      - name: Checkout Repo
         uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.10'
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
+          python -m pip install --upgrade pip
+          pip install selenium beautifulsoup4 webdriver-manager
+
+      - name: Install Chrome
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+          google-chrome --version
 
       - name: Run job crawler
         run: |
-          python job_crawler.py
+          export DISPLAY=:99
+          sudo apt-get install -y xvfb
+          Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 &
+          python crawler.py  # 실제 Python 파일명으로 변경 필요 (예: job_crawler.py)
