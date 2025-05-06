@@ -11,7 +11,6 @@ import ssl
 from email.mime.text import MIMEText
 import json
 import os
-import sys
 
 FROM_EMAIL = os.environ["FROM_EMAIL"]
 TO_EMAIL = os.environ["TO_EMAIL"]
@@ -31,6 +30,7 @@ def crawl_saramin():
     driver = setup_driver()
     try:
         driver.get("https://www.saramin.co.kr/zf_user/jobs/list/job-category")
+        # 최신 구조에 맞는 선택자 (2024.06 기준)
         WebDriverWait(driver, 10).until(
             EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.area_job > h2.job_tit > a"))
         )
@@ -42,6 +42,8 @@ def crawl_saramin():
         print(f"🟢 Saramin {len(jobs)}개 수집")
     except Exception as e:
         print(f"❌ Saramin 크롤링 실패: {e}")
+        driver.save_screenshot("saramin_error.png")
+        print("🖼️ Saramin 에러 화면 캡처 (saramin_error.png)")
     finally:
         driver.quit()
     return jobs
@@ -52,6 +54,7 @@ def crawl_jobkorea():
     driver = setup_driver()
     try:
         driver.get("https://www.jobkorea.co.kr/recruit/joblist")
+        # 최신 구조에 맞는 선택자 (2024.06 기준)
         WebDriverWait(driver, 10).until(
             EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.list-default > ul.clear > li > div.post-list-info > a.title"))
         )
@@ -63,6 +66,8 @@ def crawl_jobkorea():
         print(f"🟢 JobKorea {len(jobs)}개 수집")
     except Exception as e:
         print(f"❌ JobKorea 크롤링 실패: {e}")
+        driver.save_screenshot("jobkorea_error.png")
+        print("🖼️ JobKorea 에러 화면 캡처 (jobkorea_error.png)")
     finally:
         driver.quit()
     return jobs
@@ -73,8 +78,8 @@ def crawl_wanted():
     driver = setup_driver()
     try:
         driver.get("https://www.wanted.co.kr/jobsfeed")
-        # 동적 로딩이므로, job-card로 시작하는 div를 기다림
-        WebDriverWait(driver, 10).until(
+        # 동적 로딩이므로, job-card로 시작하는 div를 기다림 (2024.06 기준)
+        WebDriverWait(driver, 15).until(
             EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.JobCard_container__z4_3g a"))
         )
         elements = driver.find_elements(By.CSS_SELECTOR, "div.JobCard_container__z4_3g a")
@@ -90,6 +95,8 @@ def crawl_wanted():
         print(f"🟢 Wanted {len(jobs)}개 수집")
     except Exception as e:
         print(f"❌ Wanted 크롤링 실패: {e}")
+        driver.save_screenshot("wanted_error.png")
+        print("🖼️ Wanted 에러 화면 캡처 (wanted_error.png)")
     finally:
         driver.quit()
     return jobs
@@ -125,7 +132,6 @@ def main():
     wanted_jobs = crawl_wanted()
     all_jobs = saramin_jobs + jobkorea_jobs + wanted_jobs
 
-    # 이전 링크 목록만 저장/비교
     previous_links = set()
     previous_jobs = load_previous_jobs()
     for job in previous_jobs:
