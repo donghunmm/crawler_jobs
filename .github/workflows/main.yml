@@ -39,4 +39,4 @@ jobs:
           export DISPLAY=:99
           sudo apt-get install -y xvfb
           Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 &
-          python crawler.py  # 실제 Python 파일명으로 변경 필요 (예: job_crawler.py)
+          python crawler.py 
