@@ -24,7 +24,7 @@ jobs:
           playwright install
 
       - name: Run job crawler
-        run: python job_crawler.py
+        run: python crawler.py
         env:
           FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
           TO_EMAIL: ${{ secrets.TO_EMAIL }}
