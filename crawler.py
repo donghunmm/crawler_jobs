@@ -6,6 +6,7 @@ from email.mime.text import MIMEText
 import smtplib
 import ssl
 import requests
+import re
 
 FROM_EMAIL = os.environ["FROM_EMAIL"]
 TO_EMAIL = os.environ["TO_EMAIL"]
@@ -18,7 +19,7 @@ def crawl_saramin():
         url = "https://oapi.saramin.co.kr/job-search"
         params = {
             "keywords": "정보보안",
-            "count": 5,
+            "count": 10,
             "fields": "posting-date+apply-url+company+position"
         }
         res = requests.get(url, params=params)
@@ -26,40 +27,34 @@ def crawl_saramin():
             data = res.json()
             items = data.get("jobs", [])
             for item in items:
-                title = item.get("position", {}).get("title")
+                job_data = item.get("position")
+                company = item.get("company", {}).get("name")
+                title = job_data.get("title") if job_data else None
                 link = item.get("apply_url")
                 if title and link:
-                    jobs.append({"title": title.strip(), "link": link})
+                    jobs.append({"title": f"{title} - {company}", "link": link})
         print(f"🟢 Saramin {len(jobs)}개 수집 완료")
     except Exception as e:
         print(f"❌ Saramin API 실패: {e}")
     return jobs
 
 def crawl_jobkorea():
-    print("\n🟢 JobKorea API 크롤링 시작")
+    print("\n🟢 JobKorea HTML 파싱 시작")
     jobs = []
     try:
-        url = "https://www.jobkorea.co.kr/Search/AjaxSearchList"
-        params = {
-            "stext": "정보보안",
-            "tabType":"recruit",
-            "Page": 1,
-        }
-        headers = {
-            "Referer": "https://www.jobkorea.co.kr/",
-            "User-Agent": "Mozilla/5.0"
-        }
-        res = requests.get(url, params=params, headers=headers)
+        url = "https://www.jobkorea.co.kr/Search/?stext=정보보안"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        res = requests.get(url, headers=headers)
         if res.status_code == 200:
             html = res.text
-            import re
             titles = re.findall(r'data-garecruit-title="(.*?)"', html)
             links = re.findall(r'href="(/Recruit/GIRead/.*?)"', html)
-            for title, link in zip(titles, links)[:5]:
-                jobs.append({"title": title, "link": f"https://www.jobkorea.co.kr{link}"})
+            min_len = min(len(titles), len(links))
+            for i in range(min_len):
+                jobs.append({"title": titles[i], "link": f"https://www.jobkorea.co.kr{links[i]}"})
         print(f"🟢 JobKorea {len(jobs)}개 수집 완료")
     except Exception as e:
-        print(f"❌ JobKorea API 실패: {e}")
+        print(f"❌ JobKorea HTML 파싱 실패: {e}")
     return jobs
 
 def crawl_wanted():
@@ -68,7 +63,7 @@ def crawl_wanted():
     try:
         url = "https://www.wanted.co.kr/api/v4/jobs"
         params = {
-            "limit": 5,
+            "limit": 10,
             "query": "정보보안",
             "job_sort": "job.latest_order"
         }
@@ -79,8 +74,9 @@ def crawl_wanted():
             for item in data.get("data", []):
                 title = item.get("position")
                 link = f"https://www.wanted.co.kr/wd/{item.get('id')}"
+                company = item.get("company", {}).get("name")
                 if title and link:
-                    jobs.append({"title": title, "link": link})
+                    jobs.append({"title": f"{title} - {company}", "link": link})
         print(f"🟢 Wanted {len(jobs)}개 수집 완료")
     except Exception as e:
         print(f"❌ Wanted API 실패: {e}")
