@@ -2,7 +2,7 @@ name: Job Crawler Playwright
 
 on:
   schedule:
-    - cron: '0 0 * * *'   # 매일 09:00 KST (UTC 0시)
+    - cron: '0 0 * * *'   # 매일 00:00 UTC (한국시간 9시)
   workflow_dispatch:
 
 jobs:
@@ -13,7 +13,7 @@ jobs:
     - name: Checkout repo
       uses: actions/checkout@v3
 
-    - name: Set up Python
+    - name: Set up Python 3.10
       uses: actions/setup-python@v4
       with:
         python-version: 3.10
@@ -24,7 +24,7 @@ jobs:
         pip install playwright
         playwright install
 
-    - name: Run crawler
+    - name: Run crawler script
       env:
         FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
         TO_EMAIL: ${{ secrets.TO_EMAIL }}
