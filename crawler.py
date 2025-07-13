@@ -99,6 +99,16 @@ def main():
 
     all_jobs = saramin_jobs + jobkorea_jobs + wanted_jobs
 
+    print("전체 수집된 공고:")
+    for job in all_jobs:
+        print(job)
+    
+    previous_links = set(job["link"] for job in load_previous_jobs())
+    print(f"이전 공고 링크 수: {len(previous_links)}")
+
+    new_jobs = [job for job in all_jobs if job["link"] not in previous_links]
+    print(f"새로운 공고 수: {len(new_jobs)}")
+
     previous_links = set(job["link"] for job in load_previous_jobs())
     new_jobs = [job for job in all_jobs if job["link"] not in previous_links]
 
