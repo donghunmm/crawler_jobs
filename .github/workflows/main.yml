@@ -2,7 +2,7 @@ name: Daily Job Crawler
 
 on:
   schedule:
-    - cron: "0 0 * * *"  # 매일 00:00 UTC = 한국 시간 09:00
+    - cron: "0 0 * * *"  # 매일 자정 UTC = 오전 9시 KST
   workflow_dispatch:
 
 jobs:
@@ -10,22 +10,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.11
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
           pip install playwright
           playwright install
 
-      - name: Run job_crawler.py
+      - name: Run job crawler
+        run: python job_crawler.py
         env:
           FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
           TO_EMAIL: ${{ secrets.TO_EMAIL }}
           APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
-        run: python job_crawler.py
