@@ -1,4 +1,3 @@
-# job_crawler_html_version.py
 import os
 import json
 from datetime import datetime
@@ -21,12 +20,14 @@ def crawl_saramin():
         res = requests.get(url, headers=headers)
         if res.status_code == 200:
             soup = BeautifulSoup(res.text, "html.parser")
-            elements = soup.select("div.area_job > h2.job_tit > a")
+            elements = soup.select("div.job-item div.job-info h2.job-title a")
             for e in elements[:10]:
-                title = e.get("title")
+                title = e.get_text(strip=True)
                 link = e.get("href")
                 if title and link:
-                    jobs.append({"title": title.strip(), "link": f"https://www.saramin.co.kr{link}"})
+                    if not link.startswith("http"):
+                        link = "https://www.saramin.co.kr" + link
+                    jobs.append({"title": title, "link": link})
         print(f"🟢 Saramin {len(jobs)}개 수집 완료")
     except Exception as e:
         print(f"❌ Saramin HTML 파싱 실패: {e}")
@@ -41,12 +42,14 @@ def crawl_jobkorea():
         res = requests.get(url, headers=headers)
         if res.status_code == 200:
             soup = BeautifulSoup(res.text, "html.parser")
-            elements = soup.select("div.post-list-info > a.title")
+            elements = soup.select("div.list-default ul.clear li div.post-list-info a.title")
             for e in elements[:10]:
                 title = e.get_text(strip=True)
                 link = e.get("href")
                 if title and link:
-                    jobs.append({"title": title, "link": f"https://www.jobkorea.co.kr{link}"})
+                    if not link.startswith("http"):
+                        link = "https://www.jobkorea.co.kr" + link
+                    jobs.append({"title": title, "link": link})
         print(f"🟢 JobKorea {len(jobs)}개 수집 완료")
     except Exception as e:
         print(f"❌ JobKorea HTML 파싱 실패: {e}")
