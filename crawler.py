@@ -1,4 +1,4 @@
-# job_crawler_api_version.py
+# job_crawler_html_version.py
 import os
 import json
 from datetime import datetime
@@ -6,36 +6,30 @@ from email.mime.text import MIMEText
 import smtplib
 import ssl
 import requests
-import re
+from bs4 import BeautifulSoup
 
 FROM_EMAIL = os.environ["FROM_EMAIL"]
 TO_EMAIL = os.environ["TO_EMAIL"]
 APP_PASSWORD = os.environ["APP_PASSWORD"]
 
 def crawl_saramin():
-    print("\n🟢 Saramin API 크롤링 시작")
+    print("\n🟢 Saramin HTML 파싱 시작")
     jobs = []
     try:
-        url = "https://oapi.saramin.co.kr/job-search"
-        params = {
-            "keywords": "정보보안",
-            "count": 10,
-            "fields": "posting-date+apply-url+company+position"
-        }
-        res = requests.get(url, params=params)
+        url = "https://www.saramin.co.kr/zf_user/jobs/list/job-category"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        res = requests.get(url, headers=headers)
         if res.status_code == 200:
-            data = res.json()
-            items = data.get("jobs", [])
-            for item in items:
-                job_data = item.get("position")
-                company = item.get("company", {}).get("name")
-                title = job_data.get("title") if job_data else None
-                link = item.get("apply_url")
+            soup = BeautifulSoup(res.text, "html.parser")
+            elements = soup.select("div.area_job > h2.job_tit > a")
+            for e in elements[:10]:
+                title = e.get("title")
+                link = e.get("href")
                 if title and link:
-                    jobs.append({"title": f"{title} - {company}", "link": link})
+                    jobs.append({"title": title.strip(), "link": f"https://www.saramin.co.kr{link}"})
         print(f"🟢 Saramin {len(jobs)}개 수집 완료")
     except Exception as e:
-        print(f"❌ Saramin API 실패: {e}")
+        print(f"❌ Saramin HTML 파싱 실패: {e}")
     return jobs
 
 def crawl_jobkorea():
@@ -46,40 +40,16 @@ def crawl_jobkorea():
         headers = {"User-Agent": "Mozilla/5.0"}
         res = requests.get(url, headers=headers)
         if res.status_code == 200:
-            html = res.text
-            titles = re.findall(r'data-garecruit-title="(.*?)"', html)
-            links = re.findall(r'href="(/Recruit/GIRead/.*?)"', html)
-            min_len = min(len(titles), len(links))
-            for i in range(min_len):
-                jobs.append({"title": titles[i], "link": f"https://www.jobkorea.co.kr{links[i]}"})
+            soup = BeautifulSoup(res.text, "html.parser")
+            elements = soup.select("div.post-list-info > a.title")
+            for e in elements[:10]:
+                title = e.get_text(strip=True)
+                link = e.get("href")
+                if title and link:
+                    jobs.append({"title": title, "link": f"https://www.jobkorea.co.kr{link}"})
         print(f"🟢 JobKorea {len(jobs)}개 수집 완료")
     except Exception as e:
         print(f"❌ JobKorea HTML 파싱 실패: {e}")
-    return jobs
-
-def crawl_wanted():
-    print("\n🟢 Wanted API 크롤링 시작")
-    jobs = []
-    try:
-        url = "https://www.wanted.co.kr/api/v4/jobs"
-        params = {
-            "limit": 10,
-            "query": "정보보안",
-            "job_sort": "job.latest_order"
-        }
-        headers = {"User-Agent": "Mozilla/5.0"}
-        res = requests.get(url, params=params, headers=headers)
-        if res.status_code == 200:
-            data = res.json()
-            for item in data.get("data", []):
-                title = item.get("position")
-                link = f"https://www.wanted.co.kr/wd/{item.get('id')}"
-                company = item.get("company", {}).get("name")
-                if title and link:
-                    jobs.append({"title": f"{title} - {company}", "link": link})
-        print(f"🟢 Wanted {len(jobs)}개 수집 완료")
-    except Exception as e:
-        print(f"❌ Wanted API 실패: {e}")
     return jobs
 
 def load_previous_jobs():
@@ -112,9 +82,8 @@ def send_email(subject, body):
 def main():
     saramin_jobs = crawl_saramin()
     jobkorea_jobs = crawl_jobkorea()
-    wanted_jobs = crawl_wanted()
 
-    all_jobs = saramin_jobs + jobkorea_jobs + wanted_jobs
+    all_jobs = saramin_jobs + jobkorea_jobs
 
     print("\n전체 수집된 공고:")
     for job in all_jobs:
