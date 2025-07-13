@@ -1,59 +1,66 @@
-import os
+from playwright.sync_api import sync_playwright
 import json
 from datetime import datetime
 from email.mime.text import MIMEText
 import smtplib
 import ssl
-import requests
-from bs4 import BeautifulSoup
+import os
 
 FROM_EMAIL = os.environ["FROM_EMAIL"]
 TO_EMAIL = os.environ["TO_EMAIL"]
 APP_PASSWORD = os.environ["APP_PASSWORD"]
 
-def crawl_saramin():
-    print("\n🟢 Saramin HTML 파싱 시작")
+def crawl_saramin(playwright):
+    print("\n🟢 Saramin Playwright 크롤링 시작")
     jobs = []
-    try:
-        url = "https://www.saramin.co.kr/zf_user/jobs/list/job-category"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        res = requests.get(url, headers=headers)
-        if res.status_code == 200:
-            soup = BeautifulSoup(res.text, "html.parser")
-            elements = soup.select("div.job-item div.job-info h2.job-title a")
-            for e in elements[:10]:
-                title = e.get_text(strip=True)
-                link = e.get("href")
-                if title and link:
-                    if not link.startswith("http"):
-                        link = "https://www.saramin.co.kr" + link
-                    jobs.append({"title": title, "link": link})
-        print(f"🟢 Saramin {len(jobs)}개 수집 완료")
-    except Exception as e:
-        print(f"❌ Saramin HTML 파싱 실패: {e}")
+    browser = playwright.chromium.launch(headless=True)
+    page = browser.new_page()
+    page.goto("https://www.saramin.co.kr/zf_user/jobs/list/job-category")
+    page.wait_for_selector("div.job-item div.job-info h2.job-title a", timeout=15000)
+    elements = page.query_selector_all("div.job-item div.job-info h2.job-title a")
+    for e in elements[:10]:
+        title = e.inner_text().strip()
+        link = e.get_attribute("href")
+        if title and link:
+            if not link.startswith("http"):
+                link = "https://www.saramin.co.kr" + link
+            jobs.append({"title": title, "link": link})
+    browser.close()
+    print(f"🟢 Saramin {len(jobs)}개 수집 완료")
     return jobs
 
-def crawl_jobkorea():
-    print("\n🟢 JobKorea HTML 파싱 시작")
+def crawl_jobkorea(playwright):
+    print("\n🟢 JobKorea Playwright 크롤링 시작")
     jobs = []
-    try:
-        url = "https://www.jobkorea.co.kr/Search/?stext=정보보안"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        res = requests.get(url, headers=headers)
-        if res.status_code == 200:
-            soup = BeautifulSoup(res.text, "html.parser")
-            elements = soup.select("div.list-default ul.clear li div.post-list-info a.title")
-            for e in elements[:10]:
-                title = e.get_text(strip=True)
-                link = e.get("href")
-                if title and link:
-                    if not link.startswith("http"):
-                        link = "https://www.jobkorea.co.kr" + link
-                    jobs.append({"title": title, "link": link})
-        print(f"🟢 JobKorea {len(jobs)}개 수집 완료")
-    except Exception as e:
-        print(f"❌ JobKorea HTML 파싱 실패: {e}")
+    browser = playwright.chromium.launch(headless=True)
+    page = browser.new_page()
+    page.goto("https://www.jobkorea.co.kr/Search/?stext=정보보안")
+    page.wait_for_selector("div.list-default ul.clear li div.post-list-info a.title", timeout=15000)
+    elements = page.query_selector_all("div.list-default ul.clear li div.post-list-info a.title")
+    for e in elements[:10]:
+        title = e.inner_text().strip()
+        link = e.get_attribute("href")
+        if title and link:
+            if not link.startswith("http"):
+                link = "https://www.jobkorea.co.kr" + link
+            jobs.append({"title": title, "link": link})
+    browser.close()
+    print(f"🟢 JobKorea {len(jobs)}개 수집 완료")
     return jobs
+
+def send_email(subject, body):
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = FROM_EMAIL
+    msg["To"] = TO_EMAIL
+    context = ssl.create_default_context()
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+            server.login(FROM_EMAIL, APP_PASSWORD)
+            server.sendmail(FROM_EMAIL, TO_EMAIL, msg.as_string())
+        print("✅ 이메일 전송 완료")
+    except Exception as e:
+        print(f"❌ 이메일 전송 실패: {e}")
 
 def load_previous_jobs():
     try:
@@ -67,24 +74,10 @@ def save_jobs(jobs):
     with open("jobs.json", "w", encoding="utf-8") as f:
         json.dump(jobs, f, ensure_ascii=False, indent=2)
 
-def send_email(subject, body):
-    msg = MIMEText(body)
-    msg["Subject"] = subject
-    msg["From"] = FROM_EMAIL
-    msg["To"] = TO_EMAIL
-
-    context = ssl.create_default_context()
-    try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
-            server.login(FROM_EMAIL, APP_PASSWORD)
-            server.sendmail(FROM_EMAIL, TO_EMAIL, msg.as_string())
-        print("✅ 이메일 전송 완료")
-    except Exception as e:
-        print(f"❌ 이메일 전송 실패: {e}")
-
 def main():
-    saramin_jobs = crawl_saramin()
-    jobkorea_jobs = crawl_jobkorea()
+    with sync_playwright() as playwright:
+        saramin_jobs = crawl_saramin(playwright)
+        jobkorea_jobs = crawl_jobkorea(playwright)
 
     all_jobs = saramin_jobs + jobkorea_jobs
 
