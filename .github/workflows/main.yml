@@ -2,8 +2,8 @@ name: Crawl Job Postings Daily
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # 매일 오전 9시 (KST: UTC+9 → cron은 UTC 기준)
-  workflow_dispatch:      # 수동 실행도 가능
+    - cron: '0 0 * * *'  # 매일 오전 9시 (KST 기준)
+  workflow_dispatch:
 
 jobs:
   run-crawler:
@@ -21,7 +21,7 @@ jobs:
     - name: 📦 Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install requests
+        pip install requests beautifulsoup4
 
     - name: ✅ Run Job Crawler
       env:
